@@ -8,3 +8,6 @@ authApp
 brokerApp
 listener
 frontEndLinux
+*.mod
+*.sum
+.DS_Store
