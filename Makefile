@@ -6,9 +6,48 @@ LISTENER_BINARY=listener
 MAIL_BINARY=mailerServiceApp
 AUTH_VERSION=1.0.0
 BROKER_VERSION=1.0.0
-LISTENER_VERSION=1.0.2
+LISTENER_VERSION=1.0.0
 MAIL_VERSION=1.0.0
 LOGGER_VERSION=1.0.0
+FRONTEND_VERSION=1.0.0
+
+CLUSTER_NAME=demo
+PROJECT_ID=steel-climber-365907
+ZONE=us-central1-b
+
+gc_fw:
+	gcloud container clusters get-credentials ${CLUSTER_NAME} --project=${PROJECT_ID} --zone=${ZONE}
+	#gcloud container clusters get-credentials cluster-1 --zone us-central1-c --project steel-climber-365907
+	gcloud compute firewall-rules create ducdang91-kiali --allow tcp:31000
+	gcloud compute firewall-rules create ducdang91-jaeger --allow tcp:31001
+	gcloud compute firewall-rules create ducdang91-grafana --allow tcp:31002
+	gcloud compute firewall-rules create ducdang91-prometheus --allow tcp:2020
+	gcloud compute firewall-rules create ducdang91-loki --allow tcp:3100
+
+gc_cluster:
+	gcloud container clusters create ${CLUSTER_NAME} --project=${PROJECT_ID} --zone=${ZONE} --machine-type=e2-standard-2 --num-nodes=2
+# 	gcloud services enable container.googleapis.com --project ${PROJECT_ID}
+
+gc_fleetman: gc_cluster k8s_istio k8s_fleetman
+
+#
+gc_demo: gc_cluster k8s_istio k8s_demo
+
+gc_dlt:
+	gcloud container clusters delete ${CLUSTER_NAME} --project=${PROJECT_ID} --zone=${ZONE}
+
+gc_dis:
+	kubectl config use-context docker-desktop
+
+k8s_istio:
+	kubectl apply -f ./kubernetes/1-istio-init.yaml
+	kubectl apply -f ./kubernetes/2-istio-minikube.yaml
+
+k8s_demo:
+	kubectl create ns demo
+	kubectl label namespace demo istio-injection=enabled
+	kubectl apply -n demo  -f k8s
+
 
 ## up: starts all containers in the background without forcing build
 up:
@@ -25,20 +64,21 @@ down:
 ## build_dockerfiles: builds all dockerfile images
 build_dockerfiles: build_auth build_broker build_listener build_logger build_mail front_end_linux
 	@echo "Building dockerfiles..."
-	docker build -f front-end.dockerfile -t tsawler/front-end .
-	docker build -f authentication-service.dockerfile -t tsawler/authentication:${AUTH_VERSION} .
-	docker build -f broker-service.dockerfile -t tsawler/broker:1.0.0 .
-	docker build -f listener-service.dockerfile -t tsawler/listener:1.0.2 .
-	docker build -f mail-service.dockerfile -t tsawler/mail:1.0.0 .
-	docker build -f logger-service.dockerfile -t tsawler/logger:1.0.0 .
+	docker build -f front-end.dockerfile -t ducdang91/front-end:${FRONTEND_VERSION} .
+	docker build -f authentication-service.dockerfile -t ducdang91/authentication-service:${AUTH_VERSION} .
+	docker build -f broker-service.dockerfile -t ducdang91/broker-service:${BROKER_VERSION} .
+	docker build -f listener-service.dockerfile -t ducdang91/listener-service:${LISTENER_VERSION} .
+	docker build -f mail-service.dockerfile -t ducdang91/mail-service:${MAIL_VERSION} .
+	docker build -f logger-service.dockerfile -t ducdang91/logger-service:${LOGGER_VERSION} .
 
 ## push_dockerfiles: pushes tagged versions to docker hub
 push_dockerfiles: build_dockerfiles
-	docker push tsawler/authentication:${AUTH_VERSION}
-	docker push tsawler/broker:${BROKER_VERSION}
-	docker push tsawler/listener:${LISTENER_VERSION}
-	docker push tsawler/mail:${MAIL_VERSION}
-	docker push tsawler/logger:${LOGGER_VERSION}
+	docker push ducdang91/authentication-service:${AUTH_VERSION}
+	docker push ducdang91/broker-service:${BROKER_VERSION}
+	docker push ducdang91/listener-service:${LISTENER_VERSION}
+	docker push ducdang91/mail-service:${MAIL_VERSION}
+	docker push ducdang91/logger-service:${LOGGER_VERSION}
+	docker push ducdang91/front-end:${FRONTEND_VERSION}
 	@echo "Done!"
 
 ## front_end_linux: builds linux executable for front end
